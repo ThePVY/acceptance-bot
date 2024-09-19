@@ -1,0 +1,29 @@
+{
+  "name": "acceptance-bot",
+  "version": "1.0.0",
+  "description": "telegram bot for wildberries acceptance tracking",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThePVY/acceptance-bot.git"
+  },
+  "keywords": [
+    "wildberries",
+    "bot",
+    "acceptance"
+  ],
+  "author": "Vladimir Polozhentsev",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ThePVY/acceptance-bot/issues"
+  },
+  "homepage": "https://github.com/ThePVY/acceptance-bot#readme",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
