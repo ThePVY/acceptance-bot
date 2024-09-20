@@ -10,11 +10,15 @@ class ChatConfiguration extends BaseConfiguration {
   }
 
   get coefficient() {
-    return this.get('coefficient')
+    return this.get('coefficient');
   }
   
   get preorderID() {
-    return this.get('preorderID')
+    return this.get('preorderID');
+  }
+
+  get reportMode() {
+    return this.get('reportMode') || 'Удалять';
   }
 }
 

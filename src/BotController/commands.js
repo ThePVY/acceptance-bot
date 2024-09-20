@@ -35,6 +35,10 @@ const commands = [
     command: 'preorderid',
     description: 'Настройка конфигурации: ID предзаказа',
   },
+  {
+    command: 'reportmode',
+    description: 'Настройка конфигурации: удалять ли старый отчет'
+  },
 ]
 
 export default commands;

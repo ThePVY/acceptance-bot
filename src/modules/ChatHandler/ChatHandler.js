@@ -3,7 +3,7 @@ class ChatHandler {
   chatId;
   apiController;
   chatConfiguration;
-  // null | 'token' | 'warehouses' | 'ready' | 'tracking' | 'coefficient' | 'preorderID'
+  // null | 'token' | 'warehouses' | 'ready' | 'tracking' | 'coefficient' | 'preorderID' | 'reportMode'
   stateStep = null;
   state = {
     token: false,
@@ -81,6 +81,10 @@ class ChatHandler {
       return this.handlePreorderID(message);
     }
 
+    if (text.startsWith('/reportmode')) {
+      return this.handleReportMode(message);
+    }
+
     if (text.startsWith('/track')) {
       return this.handleTrack(message);
     }
@@ -156,6 +160,18 @@ class ChatHandler {
     this.stateStep = 'preorderID';
   }
 
+  async handleReportMode({ chat }) {
+    const msg = await this.bot.sendMessage(chat.id, 'Выберите удалять ли сообщение с прошлым отчетом:', {
+      reply_markup: {
+        keyboard: [
+          ['Удалять', 'Оставлять'],
+        ],
+        resize_keyboard: true,
+      },
+    });
+    this.stateStep = 'reportMode';
+  }
+
   async handleTrack({ chat }) {
     if (!this.isInitialized) {
       await this.bot.sendMessage(chat.id, 'Невозможно начать отслеживание. Воспользуйтесь командой /start');
@@ -182,19 +198,21 @@ class ChatHandler {
           warehouseName: meta.warehouseName,
         }));
 
-      if (appropriateMetas.length !== 0) {
-        if (this.reportMessage) {
-          await this.bot.deleteMessage(this.reportMessage.chat.id, this.reportMessage.message_id);
-        }
-        this.reportMessage = await this.bot.sendMessage(
-          this.chatId,
-          `Время формирования отчета: ${new Date().toLocaleTimeString()}\n`
-          + JSON.stringify({
-            ...appropriateMetas,
-          }, null, 2)
-          + `\nhttps://seller.wildberries.ru/supplies-management/all-supplies/supply-detail/uploaded-goods?preorderId=${preorderID}&supplyId`,
-        );
+      if (appropriateMetas.length === 0) {
+        return;
       }
+
+      if (this.reportMessage && this.chatConfiguration.reportMode === 'Удалять') {
+        await this.bot.deleteMessage(this.reportMessage.chat.id, this.reportMessage.message_id);
+      }
+      this.reportMessage = await this.bot.sendMessage(
+        this.chatId,
+        `Время формирования отчета: ${new Date().toLocaleTimeString()}\n`
+        + JSON.stringify({
+          ...appropriateMetas,
+        }, null, 2)
+        + `\nhttps://seller.wildberries.ru/supplies-management/all-supplies/supply-detail/uploaded-goods?preorderId=${preorderID}&supplyId`,
+      );
     } catch (error) {
       console.error(error);
     }
@@ -213,12 +231,12 @@ class ChatHandler {
 
   async handleText(message) {
     if (this.stateStep === null) {
-      await this.bot.sendMessage(chat.id, 'Воспользуйтесь командой /start');
+      await this.bot.sendMessage(message.chat.id, 'Воспользуйтесь командой /start');
 
       return;
     }
 
-    if (['token', 'coefficient', 'preorderID'].includes(this.stateStep)) {
+    if (['token', 'coefficient', 'preorderID', 'reportMode'].includes(this.stateStep)) {
       await this.handleStep(this.stateStep, message);
 
       return;
@@ -230,14 +248,18 @@ class ChatHandler {
       return;
     }
 
-    await this.bot.sendMessage(chat.id, 'Текущий статус:', this.stateStep);
+    await this.bot.sendMessage(message.chat.id, `Текущий статус: ${this.stateStep}`);
   }
 
   async handleStep(step, { chat, text }) {
     this.stateStep = null;
     await this.chatConfiguration.setProperty(step, text);
     this.state[step] = true;
-    await this.bot.sendMessage(chat.id, `Свойство ${step} успешно сохранено.`);
+    await this.bot.sendMessage(chat.id, `Свойство ${step} успешно сохранено.`, {
+      reply_markup: {
+        remove_keyboard: true,
+      },
+    });
   }
 }
 
