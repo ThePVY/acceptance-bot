@@ -12,6 +12,7 @@ class ChatHandler {
     preorderID: false,
   }
   reportMessage;
+  reportTimeMessage;
 
   constructor(bot, chatId, apiController, chatConfiguration) {
     this.bot = bot;
@@ -199,8 +200,23 @@ class ChatHandler {
         }));
 
       if (appropriateMetas.length === 0) {
+        const text = `Время последней проверки: ${new Date().toLocaleTimeString()}`;
+        if (!!this.reportTimeMessage) {
+          this.reportTimeMessage = await this.bot.editMessageText(text, {
+            chat_id: this.reportTimeMessage.chat.id,
+            message_id: this.reportTimeMessage.message_id,
+            disable_notification: true,
+          });
+        } else {
+          this.reportTimeMessage = await this.bot.sendMessage(this.chatId, text, {
+            disable_notification: true,
+          });
+        }
+        
         return;
       }
+
+      this.reportTimeMessage = null;
 
       if (this.reportMessage && this.chatConfiguration.reportMode === 'Удалять') {
         await this.bot.deleteMessage(this.reportMessage.chat.id, this.reportMessage.message_id);
