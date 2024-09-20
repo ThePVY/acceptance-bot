@@ -1,0 +1,9 @@
+services:
+  bot:
+    image: acceptance-bot
+    volumes:
+      - configs:/app/configs
+      - ../configs/acceptance-bot.config.json:/app/configs/acceptance-bot.config.json:ro
+ 
+volumes:
+  configs:
