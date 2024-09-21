@@ -18,8 +18,11 @@ class SuppliesApiController {
     await this.updateTrakedWarehousesIDs();
     this.intervalID = setInterval(async () => {
       try {
-        const metas = await this.getAcceptenceMetaForTrakedWarehouses();
-        this.tickEventEmitter.emit('tick', metas);
+        const jsonResponse = await this.getAcceptenceMetaForTrakedWarehouses();
+        if (!Array.isArray(jsonResponse)) {
+          throw new Error(jsonResponse.details || 'An error during tracking interval: jsonResponse is not an array');
+        }
+        this.tickEventEmitter.emit('tick', jsonResponse);
       } catch (error) {
         console.error(error);
       }
