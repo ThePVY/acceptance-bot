@@ -25,6 +25,7 @@ class SuppliesApiController {
         this.tickEventEmitter.emit('tick', jsonResponse);
       } catch (error) {
         console.error(error);
+        this.tickEventEmitter.emit('tick', []);
       }
     }, this.mainConfiguration.trackingInterval);
   }
@@ -54,12 +55,12 @@ class SuppliesApiController {
 
   async updateTrakedWarehousesIDs() {
     const { baseApiUrl } = this.mainConfiguration;
-    const { token, warehousesNames } = this.chatConfiguration;
+    const { token, warehouses } = this.chatConfiguration;
 
     const getTrakedWarehousesMeta = async () => {
       const result = await this.service.getWarehousesMeta(baseApiUrl, token);
 
-      const regexps = warehousesNames
+      const regexps = warehouses
         .split(',')
         .map((warehouseName) => new RegExp(warehouseName.trim()));
       const warehouseMetas = result.filter((warehouse) => regexps.some((regexp) => regexp.test(warehouse.name)));

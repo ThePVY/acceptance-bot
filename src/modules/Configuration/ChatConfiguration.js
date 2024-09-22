@@ -5,20 +5,24 @@ class ChatConfiguration extends BaseConfiguration {
     return this.get('token');
   }
 
-  get warehousesNames() {
-    return this.get('warehousesNames');
+  get warehouses() {
+    return this.get('warehouses');
   }
 
   get coefficient() {
     return this.get('coefficient');
   }
   
-  get preorderID() {
-    return this.get('preorderID');
+  get preorderid() {
+    return this.get('preorderid');
   }
 
-  get reportMode() {
-    return this.get('reportMode') || 'Удалять';
+  get reportmode() {
+    return this.get('reportmode') || 'Удалять';
+  }
+
+  get timezone() {
+    return this.get('timezone') || 'Europe/Moscow';
   }
 }
 

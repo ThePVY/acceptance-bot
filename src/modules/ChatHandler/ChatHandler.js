@@ -1,15 +1,21 @@
+import { handleSetConfiguration } from './utils.js';
+
 class ChatHandler {
   bot;
   chatId;
   apiController;
   chatConfiguration;
-  // null | 'token' | 'warehouses' | 'ready' | 'tracking' | 'coefficient' | 'preorderID' | 'reportMode'
+  // null | 'ready' | 'tracking'
   stateStep = null;
-  state = {
+  // null | 'token' | 'warehouses' | 'coefficient' | 'preorderid' | 'reportmode' | 'timezone'
+  configurationStep = null;
+  configurationState = {
     token: false,
-    warehousesNames: false,
+    warehouses: false,
     coefficient: false,
-    preorderID: false,
+    preorderid: false,
+    reportmode: false,
+    timezone: false,
   }
   reportMessage;
   reportTimeMessage;
@@ -19,22 +25,29 @@ class ChatHandler {
     this.chatId = chatId;
     this.apiController = apiController;
     this.chatConfiguration = chatConfiguration;
-    this.state = {
+    this.configurationState = {
       token: !!chatConfiguration.token,
-      warehousesNames: !!chatConfiguration.warehousesNames,
+      warehouses: !!chatConfiguration.warehouses,
       coefficient: !!chatConfiguration.coefficient,
-      preorderID: !!chatConfiguration.preorderID,
+      preorderid: !!chatConfiguration.preorderid,
+      reportmode: !!chatConfiguration.reportmode,
+      timezone: !!chatConfiguration.timezone,
     }
 
     apiController.subscribeOnTick(this.trackingTickHandler.bind(this));
   }
 
   get isInitialized() {
-    return Object.values(this.state).every(val => val);
+    const { token, warehouses, coefficient } = this.configurationState;
+    return token && warehouses && coefficient;
   }
 
-  get statusMessage() {
-    return `Вам необходимо предоставить:\n${!this.state.token ? '- токен для доступа к API Wildberries (команда /token)\n' : ''}${!this.state.warehousesNames ? '- имена складов для отслеживания (команда /warehouses)\n' : ''}${!this.state.coefficient ? '- максимальный коэффициен (команда /coefficient)\n' : ''}${!this.state.preorderID ? '- ID предзаказа (команда /preorderid)\n' : ''}`;
+  get toGetReadyMessage() {
+    return `Вам необходимо предоставить:
+${!this.configurationState.token ? '- токен для доступа к API Wildberries (команда /token)' : ''}
+${!this.configurationState.warehouses ? '- имена складов для отслеживания (команда /warehouses)' : ''}
+${!this.configurationState.coefficient ? '- максимальный коэффициент (команда /coefficient)' : ''}
+`;
   }
 
   async handleMessage(message) {
@@ -66,26 +79,6 @@ class ChatHandler {
       return this.handleStatus(message);
     }
 
-    if (text.startsWith('/token')) {
-      return this.handleToken(message);
-    }
-
-    if (text.startsWith('/warehouses')) {
-      return this.handleWarehouses(message);
-    }
-
-    if (text.startsWith('/coefficient')) {
-      return this.handleCoefficient(message);
-    }
-
-    if (text.startsWith('/preorderid')) {
-      return this.handlePreorderID(message);
-    }
-
-    if (text.startsWith('/reportmode')) {
-      return this.handleReportMode(message);
-    }
-
     if (text.startsWith('/track')) {
       return this.handleTrack(message);
     }
@@ -93,6 +86,14 @@ class ChatHandler {
     if (text.startsWith('/stop')) {
       return this.handleStop(message);
     }
+
+    if (this.checkIsConfigurationCommand(text)) {
+      return this.handleSetConfiguration(message);
+    }
+  }
+
+  checkIsConfigurationCommand(text) {
+    return Object.keys(this.configurationState).some(key => text.startsWith(`/${key}`));
   }
 
   checkIsCommandForbidden(text) {
@@ -105,17 +106,14 @@ class ChatHandler {
 
   async handleStart({ chat }) {
     await this.bot.sendMessage(chat.id, 'Бот запущен.');
-    if (this.state.token) {
+    if (this.configurationState.token) {
       await this.bot.sendMessage(chat.id, 'Токен обнаружен');
     }
-    if (this.state.warehousesNames) {
-      await this.bot.sendMessage(chat.id, `Список складов для отслеживания обнаружен: ${this.chatConfiguration.warehousesNames}`);
+    if (this.configurationState.warehouses) {
+      await this.bot.sendMessage(chat.id, `Список складов для отслеживания обнаружен: ${this.chatConfiguration.warehouses}`);
     }
-    if (this.state.coefficient) {
+    if (this.configurationState.coefficient) {
       await this.bot.sendMessage(chat.id, `Максимальный коэффициент обнаружен: ${this.chatConfiguration.coefficient}`);
-    }
-    if (this.state.preorderID) {
-      await this.bot.sendMessage(chat.id, `ID предзаказа обнаружен: ${this.chatConfiguration.preorderID}`);
     }
 
     if (this.isInitialized) {
@@ -124,7 +122,7 @@ class ChatHandler {
       return this.stateStep = 'ready';
     }
 
-    await this.bot.sendMessage(chat.id, this.statusMessage);
+    await this.bot.sendMessage(chat.id, this.toGetReadyMessage);
   }
 
   async handleClear({ chat }) {
@@ -138,39 +136,26 @@ class ChatHandler {
   }
 
   async handleStatus({ chat }) {
-    await this.bot.sendMessage(chat.id, `Текущий статус: ${this.stateStep}`);
+    const { warehouses, coefficient, preorderid, reportmode, timezone } = this.chatConfiguration;
+    await this.bot.sendMessage(chat.id, `Текущий статус: ${this.stateStep}
+
+Текущая конфигурация:
+токен: ${this.configurationState.token ? 'задан' : 'не задан, воспользуйтесь командой /token'}
+склады: ${warehouses}
+максимальный коэффициент: ${coefficient}
+ID предзаказа: ${preorderid}
+удалять ли старый отчет: ${reportmode}
+часовой пояс: ${timezone}
+`);
   }
 
-  async handleToken({ chat }) {
-    await this.bot.sendMessage(chat.id, 'Предоставьте токен:');
-    this.stateStep = 'token';
-  }
+  async handleSetConfiguration({ chat, text }) {
+    const step = text.slice(1);
+    const messageText = handleSetConfiguration.getMessageText(step);
+    const options = handleSetConfiguration.getOptions(step);
 
-  async handleWarehouses({ chat }) {
-    await this.bot.sendMessage(chat.id, 'Предоставьте список складов для отслеживания (через запятую):');
-    this.stateStep = 'warehouses';
-  }
-
-  async handleCoefficient({ chat }) {
-    await this.bot.sendMessage(chat.id, 'Предоставьте максимальный коэффициент:');
-    this.stateStep = 'coefficient';
-  }
-
-  async handlePreorderID({ chat }) {
-    await this.bot.sendMessage(chat.id, 'Предоставьте ID поставки:');
-    this.stateStep = 'preorderID';
-  }
-
-  async handleReportMode({ chat }) {
-    const msg = await this.bot.sendMessage(chat.id, 'Выберите удалять ли сообщение с прошлым отчетом:', {
-      reply_markup: {
-        keyboard: [
-          ['Удалять', 'Оставлять'],
-        ],
-        resize_keyboard: true,
-      },
-    });
-    this.stateStep = 'reportMode';
+    await this.bot.sendMessage(chat.id, messageText, options);
+    this.configurationStep = step;
   }
 
   async handleTrack({ chat }) {
@@ -180,13 +165,13 @@ class ChatHandler {
       return;
     }
     await this.apiController.startTracking();
-    await this.bot.sendMessage(chat.id, `Отслеживание ${this.chatConfiguration.warehousesNames} начато.`);
+    await this.bot.sendMessage(chat.id, `Отслеживание ${this.chatConfiguration.warehouses} начато.`);
     this.stateStep = 'tracking';
   }
 
   async trackingTickHandler(metas) {
     try {
-      const { coefficient: maxCoefficient, preorderID } = this.chatConfiguration;
+      const { coefficient: maxCoefficient, preorderid, timezone } = this.chatConfiguration;
       const appropriateMetas = metas
         .filter(meta => {
           const { coefficient, boxTypeID } = meta;
@@ -199,8 +184,14 @@ class ChatHandler {
           warehouseName: meta.warehouseName,
         }));
 
+      const time = new Date().toLocaleTimeString('ru-RU', {
+        timeZone: timezone,
+        timeZoneName: 'short',
+        hour12: false
+      });
+
       if (appropriateMetas.length === 0) {
-        const text = `Время последней проверки: ${new Date().toLocaleTimeString()}`;
+        const text = `Время последней проверки: ${time}`;
         if (!!this.reportTimeMessage) {
           this.reportTimeMessage = await this.bot.editMessageText(text, {
             chat_id: this.reportTimeMessage.chat.id,
@@ -212,22 +203,25 @@ class ChatHandler {
             disable_notification: true,
           });
         }
-        
+
         return;
       }
 
       this.reportTimeMessage = null;
 
-      if (this.reportMessage && this.chatConfiguration.reportMode === 'Удалять') {
+      if (this.reportMessage && this.chatConfiguration.reportmode === 'Удалять') {
         await this.bot.deleteMessage(this.reportMessage.chat.id, this.reportMessage.message_id);
       }
+      const preorderURL = preorderid
+        ? `\nhttps://seller.wildberries.ru/supplies-management/all-supplies/supply-detail/uploaded-goods?preorderId=${preorderid}&supplyId`
+        : ''
       this.reportMessage = await this.bot.sendMessage(
         this.chatId,
-        `Время формирования отчета: ${new Date().toLocaleTimeString()}\n`
+        `Время формирования отчета: ${time}\n`
         + JSON.stringify({
           ...appropriateMetas,
         }, null, 2)
-        + `\nhttps://seller.wildberries.ru/supplies-management/all-supplies/supply-detail/uploaded-goods?preorderId=${preorderID}&supplyId`,
+        + preorderURL,
       );
     } catch (error) {
       console.error(error);
@@ -241,41 +235,37 @@ class ChatHandler {
       return;
     }
     await this.apiController.stopTracking();
-    await this.bot.sendMessage(chat.id, 'Отслеживание отменено.');
+    await this.bot.sendMessage(chat.id, 'Отслеживание остановлено.');
     this.stateStep = null;
   }
 
   async handleText(message) {
-    if (this.stateStep === null) {
-      await this.bot.sendMessage(message.chat.id, 'Воспользуйтесь командой /start');
+    if (this.configurationStep === null) {
+      await this.bot.sendMessage(message.chat.id, 'Воспользуйтесь одной из команд для установки конфигурации.');
 
       return;
     }
 
-    if (['token', 'coefficient', 'preorderID', 'reportMode'].includes(this.stateStep)) {
-      await this.handleStep(this.stateStep, message);
-
-      return;
+    if (!this.validateMessageForSetConfigStep(message)) {
+      return this.bot.sendMessage(message.chat.id, `Сообщение не прошло валидацию для шага установки ${this.configurationStep}.`);
     }
 
-    if (this.stateStep === 'warehouses') {
-      await this.handleStep('warehousesNames', message);
-
-      return;
-    }
-
-    await this.bot.sendMessage(message.chat.id, `Текущий статус: ${this.stateStep}`);
+    return this.handleStep(this.configurationStep, message);
   }
 
   async handleStep(step, { chat, text }) {
-    this.stateStep = null;
+    this.configurationStep = null;
     await this.chatConfiguration.setProperty(step, text);
-    this.state[step] = true;
+    this.configurationState[step] = true;
     await this.bot.sendMessage(chat.id, `Свойство ${step} успешно сохранено.`, {
       reply_markup: {
         remove_keyboard: true,
       },
     });
+  }
+
+  validateMessageForSetConfigStep(message) {
+    return true;
   }
 }
 
