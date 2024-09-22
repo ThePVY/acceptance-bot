@@ -1,6 +1,10 @@
 import BaseConfiguration from './BaseConfiguration.js';
 
 class ChatConfiguration extends BaseConfiguration {
+  get stateStep() {
+    return this.get('stateStep');
+  }
+
   get token() {
     return this.get('token');
   }

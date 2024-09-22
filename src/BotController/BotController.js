@@ -1,5 +1,6 @@
 import path from 'node:path';
 import TelegramBot from 'node-telegram-bot-api';
+import fs from 'node:fs';
 
 import { ChatConfiguration, MainConfiguration } from '../modules/Configuration/index.js';
 import ChatHandler from '../modules/ChatHandler/index.js';
@@ -32,6 +33,13 @@ class BotController {
         console.error(error);
       }
     });
+  }
+
+  static async factory(configurationsPath) {
+    const botController = new BotController(configurationsPath);
+    await botController.initializeByExistingChatConfigs(configurationsPath);
+
+    return botController;
   }
 
   async handle(message) {
@@ -99,6 +107,18 @@ class BotController {
     }
 
     return this.chatHandlers[id].handleMessage(message);
+  }
+
+  async initializeByExistingChatConfigs(configurationsPath) {
+    const chatConfigs = fs.readdirSync(configurationsPath).filter(file => file !== 'acceptance-bot.config.json');
+    const chatIDs = chatConfigs.map(chatConfig => chatConfig.split('.')[0]);
+
+    for (const chatID of chatIDs) {
+      this.chatHandlers[chatID] = this.createChatHandler(chatID);
+      if (this.chatHandlers[chatID].stateStep === 'tracking') {
+        await this.chatHandlers[chatID].resumeTracking();
+      }
+    }
   }
 }
 

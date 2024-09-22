@@ -6,7 +6,7 @@ class ChatHandler {
   apiController;
   chatConfiguration;
   // null | 'ready' | 'tracking'
-  stateStep = null;
+  _stateStep = null;
   // null | 'token' | 'warehouses' | 'coefficient' | 'preorderid' | 'reportmode' | 'timezone'
   configurationStep = null;
   configurationState = {
@@ -25,6 +25,7 @@ class ChatHandler {
     this.chatId = chatId;
     this.apiController = apiController;
     this.chatConfiguration = chatConfiguration;
+    this._stateStep = chatConfiguration.stateStep;
     this.configurationState = {
       token: !!chatConfiguration.token,
       warehouses: !!chatConfiguration.warehouses,
@@ -48,6 +49,15 @@ ${!this.configurationState.token ? '- токен для доступа к API Wi
 ${!this.configurationState.warehouses ? '- имена складов для отслеживания (команда /warehouses)' : ''}
 ${!this.configurationState.coefficient ? '- максимальный коэффициент (команда /coefficient)' : ''}
 `;
+  }
+
+  get stateStep() {
+    return this._stateStep;
+  }
+
+  async setStateStep(step) {
+    this._stateStep = step;
+    await this.chatConfiguration.setProperty('stateStep', step);
   }
 
   async handleMessage(message) {
@@ -119,7 +129,7 @@ ${!this.configurationState.coefficient ? '- максимальный коэфф�
     if (this.isInitialized) {
       await this.bot.sendMessage(chat.id, 'Инициализация произведена. Вы можете воспользоваться командой /track для начала отслеживания выбранных складов. Для сброса настроек воспользуйтесь командой /clear.');
 
-      return this.stateStep = 'ready';
+      return this.setStateStep('ready');
     }
 
     await this.bot.sendMessage(chat.id, this.toGetReadyMessage);
@@ -131,7 +141,7 @@ ${!this.configurationState.coefficient ? '- максимальный коэфф�
       await this.handleStop({ chat });
     }
     await this.chatConfiguration.deleteConfig();
-    this.stateStep = null;
+    await this.setStateStep(null);
     return this.bot.sendMessage(chat.id, 'Состояние сброшено. Необходимо ввести команду /start заново и следовать инструкциям.');
   }
 
@@ -166,7 +176,12 @@ ID предзаказа: ${preorderid}
     }
     await this.apiController.startTracking();
     await this.bot.sendMessage(chat.id, `Отслеживание ${this.chatConfiguration.warehouses} начато.`);
-    this.stateStep = 'tracking';
+    this.setStateStep('tracking');
+  }
+
+  async resumeTracking() {
+    await this.apiController.startTracking();
+    await this.bot.sendMessage(this.chatId, `Отслеживание ${this.chatConfiguration.warehouses} возобновлено.`);
   }
 
   async trackingTickHandler(metas) {
@@ -236,7 +251,7 @@ ID предзаказа: ${preorderid}
     }
     await this.apiController.stopTracking();
     await this.bot.sendMessage(chat.id, 'Отслеживание остановлено.');
-    this.stateStep = null;
+    this.setStateStep(null);
   }
 
   async handleText(message) {
